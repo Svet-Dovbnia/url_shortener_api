@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { MoreThanOrEqual, Repository } from 'typeorm';
-import { nanoid } from 'nanoid';
+import { customAlphabet } from 'nanoid';
 import { Url } from './url.entity';
 import { Click } from './click.entity';
 import { User, UserPlan } from '../user/user.entity';
@@ -17,6 +17,9 @@ import { CreateUrlDto } from './dto/create-url.dto';
 import { UrlStatsDto } from './dto/url-stats.dto';
 
 const SHORT_CODE_LENGTH = 8;
+const SHORT_CODE_ALPHABET =
+  'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+const generateShortCode = customAlphabet(SHORT_CODE_ALPHABET, SHORT_CODE_LENGTH);
 const RECENT_CLICKS_LIMIT = 50;
 
 const MONTHLY_QUOTA: Record<UserPlan, number> = {
@@ -155,7 +158,7 @@ export class UrlService {
 
   private async generateUniqueShortCode(): Promise<string> {
     while (true) {
-      const code = nanoid(SHORT_CODE_LENGTH);
+      const code = generateShortCode();
       const exists = await this.urlRepository.exist({
         where: { shortCode: code },
       });
