@@ -10,7 +10,6 @@ import { Url } from './url.entity';
 import { User, UserPlan } from '../user/user.entity';
 import { CreateUrlDto } from './dto/create-url.dto';
 import { UrlStatsDto } from './dto/url-stats.dto';
-import { RedirectResponseDto } from './dto/redirect-response.dto';
 
 const SHORT_CODE_LENGTH = 8;
 
@@ -50,15 +49,6 @@ export class UrlService {
       userId: user.id,
     });
     return this.urlRepository.save(url);
-  }
-
-  async resolve(shortCode: string): Promise<RedirectResponseDto> {
-    const url = await this.findByShortCodeOrFail(shortCode);
-    return {
-      shortCode: url.shortCode,
-      originalUrl: url.originalUrl,
-      message: 'Placeholder — redirect + analytics not yet implemented',
-    };
   }
 
   async getStats(shortCode: string, user: User): Promise<UrlStatsDto> {

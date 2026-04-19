@@ -91,7 +91,7 @@ x-api-key: usr_xxxxxxxxxxxxxxxxxxxxxxxx
 | ------ | -------------------------- | :--: | --------------------------------- |
 | POST   | `/url/shorten`             |  ✓   | Shorten a URL                     |
 | GET    | `/url/:shortCode/stats`    |  ✓   | Get URL stats (PRO, placeholder)  |
-| GET    | `/:shortCode`              |  —   | Redirect (mocked)                 |
+| GET    | `/:shortCode`              |  —   | Redirect (HTTP 302)               |
 
 ---
 
@@ -99,7 +99,7 @@ x-api-key: usr_xxxxxxxxxxxxxxxxxxxxxxxx
 
 - Monthly quota is calculated from URL creation timestamps
 - Short codes are generated using `nanoid`
-- Redirect endpoint is currently mocked and will be replaced with an HTTP redirect (301/302)
+- Redirect uses HTTP 302 so every hit reaches the server (important for future click tracking)
 - Analytics tracking will be implemented asynchronously (non-blocking)
 - SQLite can be used instead of PostgreSQL for local development
 - API key is generated automatically during user creation
@@ -109,7 +109,6 @@ x-api-key: usr_xxxxxxxxxxxxxxxxxxxxxxxx
 ## Current Limitations
 
 - Analytics (click tracking) is not implemented yet
-- Redirect does not perform a real HTTP redirect yet (mocked)
 
 ---
 

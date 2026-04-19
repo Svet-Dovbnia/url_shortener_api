@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Param,
   Post,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -15,11 +16,11 @@ import {
   ApiSecurity,
   ApiTags,
 } from '@nestjs/swagger';
+import { Response } from 'express';
 import { UrlService } from './url.service';
 import { CreateUrlDto } from './dto/create-url.dto';
 import { UrlResponseDto } from './dto/url-response.dto';
 import { UrlStatsDto } from './dto/url-stats.dto';
-import { RedirectResponseDto } from './dto/redirect-response.dto';
 import { ApiKeyGuard } from '../../common/guards/api-key.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { User } from '../user/user.entity';
@@ -56,10 +57,15 @@ export class UrlController {
   }
 
   @Get(':shortCode')
-  @ApiOperation({ summary: 'Resolve a short code to its original URL' })
+  @ApiOperation({ summary: 'Redirect a short code to its original URL' })
   @ApiParam({ name: 'shortCode' })
-  @ApiResponse({ status: HttpStatus.OK, type: RedirectResponseDto })
-  resolve(@Param('shortCode') shortCode: string): Promise<RedirectResponseDto> {
-    return this.urlService.resolve(shortCode);
+  @ApiResponse({ status: HttpStatus.FOUND, description: 'Redirects to the original URL' })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Short URL not found' })
+  async resolve(
+    @Param('shortCode') shortCode: string,
+    @Res() res: Response,
+  ): Promise<void> {
+    const url = await this.urlService.findByShortCodeOrFail(shortCode);
+    res.redirect(HttpStatus.FOUND, url.originalUrl);
   }
 }
