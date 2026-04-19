@@ -61,8 +61,12 @@ Available at <http://localhost:3000/docs>.
 ### Running tests
 
 ```bash
-yarn test
+yarn test          # run the unit-test suite once
+yarn test:watch    # re-run affected tests on change
+yarn test:cov      # generate a coverage report under ./coverage
 ```
+
+Business logic lives in the service layer; see `src/modules/user/user.service.spec.ts` and `src/modules/url/url.service.spec.ts` for the covered behavior.
 
 ---
 
@@ -95,15 +99,118 @@ x-api-key: usr_xxxxxxxxxxxxxxxxxxxxxxxx
 
 ---
 
-## Assumptions
+## Example requests
 
-- Monthly quota is calculated from URL creation timestamps
-- Short codes are generated using `nanoid`
-- Redirect uses HTTP 302 so every hit reaches the server and can be tracked
-- Click tracking is fire-and-forget: the insert runs after the redirect is sent, and failures are logged but never block the client
-- The stats endpoint returns the last 50 clicks (PRO only)
-- SQLite can be used instead of PostgreSQL for local development
-- API key is generated automatically during user creation
+### Create a user
+
+```bash
+curl -X POST http://localhost:3000/user \
+  -H "Content-Type: application/json" \
+  -d '{"email": "user@example.com"}'
+```
+
+```json
+{
+  "id": "c0a8012e-8b1c-4e1c-9d3a-1f5b2c3d4e5f",
+  "email": "user@example.com",
+  "apiKey": "usr_A1b2C3d4E5f6G7h8I9j0K1l2",
+  "plan": "FREE",
+  "createdAt": "2026-04-19T12:00:00.000Z"
+}
+```
+
+### Shorten a URL
+
+```bash
+curl -X POST http://localhost:3000/url/shorten \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: usr_A1b2C3d4E5f6G7h8I9j0K1l2" \
+  -d '{"originalUrl": "https://example.com/very/long/path"}'
+```
+
+```json
+{
+  "id": "2f91fce7-4a9b-45f7-9a6d-6f1e5b2a3c4d",
+  "shortCode": "aB3cD9eF",
+  "originalUrl": "https://example.com/very/long/path",
+  "createdAt": "2026-04-19T12:00:00.000Z",
+  "userId": "c0a8012e-8b1c-4e1c-9d3a-1f5b2c3d4e5f"
+}
+```
+
+### Redirect
+
+```bash
+curl -i http://localhost:3000/aB3cD9eF
+```
+
+```http
+HTTP/1.1 302 Found
+Location: https://example.com/very/long/path
+```
+
+### Get caller usage
+
+```bash
+curl http://localhost:3000/user/usage \
+  -H "x-api-key: usr_A1b2C3d4E5f6G7h8I9j0K1l2"
+```
+
+```json
+{
+  "userId": "c0a8012e-8b1c-4e1c-9d3a-1f5b2c3d4e5f",
+  "plan": "FREE",
+  "totalUrls": 3
+}
+```
+
+### Get URL stats (PRO only)
+
+```bash
+curl http://localhost:3000/url/aB3cD9eF/stats \
+  -H "x-api-key: usr_PRO_key_here"
+```
+
+```json
+{
+  "shortCode": "aB3cD9eF",
+  "totalClicks": 42,
+  "recentClicks": [
+    {
+      "timestamp": "2026-04-19T12:00:00.000Z",
+      "ipAddress": "203.0.113.1",
+      "userAgent": "Mozilla/5.0"
+    }
+  ]
+}
+```
+
+### Error response shape
+
+Every non-2xx response uses the same compact shape:
+
+```json
+{ "statusCode": 404, "message": "Short URL not found" }
+```
+
+Validation errors from `class-validator` return the field-level details as a string array:
+
+```json
+{ "statusCode": 400, "message": ["originalUrl must be a URL address"] }
+```
+
+---
+
+## Assumptions & trade-offs
+
+- **Quota window** is the calendar month in UTC — counted from the first of the current month against `Url.createdAt`.
+- **Short codes** are 8-character `nanoid` values. Collisions are possible in theory, so `shorten` retries until it finds a free code.
+- **API keys** are issued on user creation (`usr_` prefix + 24-char `nanoid`) and cannot be rotated yet.
+- **Redirect uses HTTP 302** rather than 301 so every hit reaches the server and can be counted. A 301 would be cached by browsers and skew analytics.
+- **Click tracking is fire-and-forget**: the insert runs after the redirect is sent, and a failing DB insert is logged but never surfaced to the client.
+- **Stats endpoint returns the 50 most recent clicks** — enough to be useful without paginating. Total count is always accurate.
+- **Error body is always `{ statusCode, message }`** — timestamps, paths, and stack traces stay in the server log.
+- `POST /user` is intentionally unauthenticated so new clients can bootstrap an API key.
 
 ---
 
