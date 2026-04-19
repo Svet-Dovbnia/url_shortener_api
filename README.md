@@ -14,8 +14,8 @@ A backend API for a URL shortening service with user authentication, subscriptio
 - Quota enforcement — **FREE**: 10/month, **PRO**: 100/month
 - Ownership validation on stats endpoint
 - Usage tracking per user
-- Redirect endpoint (placeholder)
-- Analytics (planned)
+- HTTP 302 redirect with asynchronous click tracking
+- Click analytics for PRO users (total count + recent history)
 
 ---
 
@@ -83,14 +83,14 @@ x-api-key: usr_xxxxxxxxxxxxxxxxxxxxxxxx
 | Method | Path            | Auth | Description                   |
 | ------ | --------------- | :--: | ----------------------------- |
 | POST   | `/user`         |  —   | Create a new user             |
-| GET    | `/user/usage`   |  ✓   | Get user usage (placeholder)  |
+| GET    | `/user/usage`   |  ✓   | Get the caller's usage stats  |
 
 ### URL
 
 | Method | Path                       | Auth | Description                       |
 | ------ | -------------------------- | :--: | --------------------------------- |
 | POST   | `/url/shorten`             |  ✓   | Shorten a URL                     |
-| GET    | `/url/:shortCode/stats`    |  ✓   | Get URL stats (PRO, placeholder)  |
+| GET    | `/url/:shortCode/stats`    |  ✓   | Get URL stats (PRO only)          |
 | GET    | `/:shortCode`              |  —   | Redirect (HTTP 302)               |
 
 ---
@@ -99,8 +99,9 @@ x-api-key: usr_xxxxxxxxxxxxxxxxxxxxxxxx
 
 - Monthly quota is calculated from URL creation timestamps
 - Short codes are generated using `nanoid`
-- Redirect uses HTTP 302 so every hit reaches the server (important for future click tracking)
-- Analytics tracking will be implemented asynchronously (non-blocking)
+- Redirect uses HTTP 302 so every hit reaches the server and can be tracked
+- Click tracking is fire-and-forget: the insert runs after the redirect is sent, and failures are logged but never block the client
+- The stats endpoint returns the last 50 clicks (PRO only)
 - SQLite can be used instead of PostgreSQL for local development
 - API key is generated automatically during user creation
 
@@ -108,7 +109,8 @@ x-api-key: usr_xxxxxxxxxxxxxxxxxxxxxxxx
 
 ## Current Limitations
 
-- Analytics (click tracking) is not implemented yet
+- Click history in the stats endpoint is capped at the 50 most recent entries (no pagination)
+- Rate limiting and caching are not implemented
 
 ---
 

@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { ClickEntryDto } from './click-entry.dto';
 
 export class UrlStatsDto {
   @ApiProperty({ example: 'aB3cD9eF' })
@@ -7,6 +8,6 @@ export class UrlStatsDto {
   @ApiProperty({ example: 0 })
   totalClicks!: number;
 
-  @ApiProperty({ example: 'Placeholder — analytics not yet implemented' })
-  message!: string;
+  @ApiProperty({ type: [ClickEntryDto] })
+  recentClicks!: ClickEntryDto[];
 }

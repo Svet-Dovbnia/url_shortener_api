@@ -14,6 +14,7 @@ import { CreateUrlDto } from './dto/create-url.dto';
 import { UrlStatsDto } from './dto/url-stats.dto';
 
 const SHORT_CODE_LENGTH = 8;
+const RECENT_CLICKS_LIMIT = 50;
 
 const MONTHLY_QUOTA: Record<UserPlan, number> = {
   [UserPlan.FREE]: 10,
@@ -72,10 +73,23 @@ export class UrlService {
       );
     }
 
+    const [totalClicks, recent] = await Promise.all([
+      this.clickRepository.count({ where: { urlId: url.id } }),
+      this.clickRepository.find({
+        where: { urlId: url.id },
+        order: { createdAt: 'DESC' },
+        take: RECENT_CLICKS_LIMIT,
+      }),
+    ]);
+
     return {
       shortCode: url.shortCode,
-      totalClicks: 0,
-      message: 'Placeholder — analytics not yet implemented',
+      totalClicks,
+      recentClicks: recent.map((click) => ({
+        timestamp: click.createdAt,
+        ipAddress: click.ipAddress,
+        userAgent: click.userAgent,
+      })),
     };
   }
 
