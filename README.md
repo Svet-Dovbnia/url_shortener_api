@@ -75,9 +75,10 @@ The API is available at <http://localhost:3000>, Swagger at <http://localhost:30
 yarn test          # run the unit-test suite once
 yarn test:watch    # re-run affected tests on change
 yarn test:cov      # generate a coverage report under ./coverage
+yarn test:e2e      # run end-to-end tests against a throwaway Postgres container
 ```
 
-Business logic lives in the service layer; see `src/modules/user/user.service.spec.ts` and `src/modules/url/url.service.spec.ts` for the covered behavior.
+Business logic lives in the service layer; see `src/modules/user/user.service.spec.ts` and `src/modules/url/url.service.spec.ts` for the covered behavior. The e2e suite (`test/app.e2e-spec.ts`) boots the full Nest app against a real Postgres via `@testcontainers/postgresql`, so a running Docker daemon is required for `yarn test:e2e`.
 
 ---
 
@@ -241,7 +242,6 @@ Validation errors from `class-validator` return the field-level details as a str
 - Add URL expiration
 - Allow custom short codes for PRO users
 - Add bulk URL shortening endpoint
-- Add integration (e2e) tests with test containers
 - Improve logging and monitoring
 
 ---
