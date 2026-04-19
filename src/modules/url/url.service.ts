@@ -1,5 +1,7 @@
 import {
+  BadRequestException,
   ForbiddenException,
+  GoneException,
   Injectable,
   Logger,
   NotFoundException,
@@ -49,10 +51,13 @@ export class UrlService {
       );
     }
 
+    const expiresAt = parseFutureExpiry(dto.expiresAt);
+
     const shortCode = await this.generateUniqueShortCode();
     const url = this.urlRepository.create({
       originalUrl: dto.originalUrl,
       shortCode,
+      expiresAt,
       userId: user.id,
     });
     return this.urlRepository.save(url);
@@ -101,6 +106,14 @@ export class UrlService {
     return url;
   }
 
+  async findActiveByShortCodeOrFail(shortCode: string): Promise<Url> {
+    const url = await this.findByShortCodeOrFail(shortCode);
+    if (url.expiresAt && url.expiresAt.getTime() <= Date.now()) {
+      throw new GoneException('Short URL has expired');
+    }
+    return url;
+  }
+
   async recordClick(
     urlId: string,
     ipAddress: string | null,
@@ -132,4 +145,18 @@ export class UrlService {
 function startOfCurrentMonth(): Date {
   const now = new Date();
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+}
+
+function parseFutureExpiry(raw: string | undefined): Date | null {
+  if (!raw) {
+    return null;
+  }
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new BadRequestException('expiresAt must be a valid ISO-8601 date');
+  }
+  if (parsed.getTime() <= Date.now()) {
+    throw new BadRequestException('expiresAt must be in the future');
+  }
+  return parsed;
 }

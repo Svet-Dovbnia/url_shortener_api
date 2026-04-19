@@ -62,12 +62,13 @@ export class UrlController {
   @ApiParam({ name: 'shortCode' })
   @ApiResponse({ status: HttpStatus.FOUND, description: 'Redirects to the original URL' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Short URL not found' })
+  @ApiResponse({ status: HttpStatus.GONE, description: 'Short URL has expired' })
   async resolve(
     @Param('shortCode') shortCode: string,
     @Req() req: Request,
     @Res() res: Response,
   ): Promise<void> {
-    const url = await this.urlService.findByShortCodeOrFail(shortCode);
+    const url = await this.urlService.findActiveByShortCodeOrFail(shortCode);
     void this.urlService.recordClick(
       url.id,
       req.ip ?? null,

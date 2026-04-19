@@ -15,6 +15,7 @@ A backend API for a URL shortening service with user authentication, subscriptio
 - Ownership validation on stats endpoint
 - Usage tracking per user
 - HTTP 302 redirect with asynchronous click tracking
+- Optional URL expiration — expired codes return `410 Gone`
 - Click analytics for PRO users (total count + recent history)
 - Rate limiting — 60 requests/minute per API key (falls back to IP)
 
@@ -133,11 +134,13 @@ curl -X POST http://localhost:3000/user \
 
 ### Shorten a URL
 
+`expiresAt` is optional; if provided it must be a future ISO-8601 timestamp. Expired codes respond with `410 Gone`.
+
 ```bash
 curl -X POST http://localhost:3000/url/shorten \
   -H "Content-Type: application/json" \
   -H "x-api-key: usr_A1b2C3d4E5f6G7h8I9j0K1l2" \
-  -d '{"originalUrl": "https://example.com/very/long/path"}'
+  -d '{"originalUrl": "https://example.com/very/long/path", "expiresAt": "2026-12-31T23:59:59.000Z"}'
 ```
 
 ```json
@@ -146,6 +149,7 @@ curl -X POST http://localhost:3000/url/shorten \
   "shortCode": "aB3cD9eF",
   "originalUrl": "https://example.com/very/long/path",
   "createdAt": "2026-04-19T12:00:00.000Z",
+  "expiresAt": "2026-12-31T23:59:59.000Z",
   "userId": "c0a8012e-8b1c-4e1c-9d3a-1f5b2c3d4e5f"
 }
 ```
@@ -239,7 +243,6 @@ Validation errors from `class-validator` return the field-level details as a str
 - Add Redis caching for frequently accessed URLs
 - Back the rate limiter with Redis so limits survive restarts and scale across instances
 - Add asynchronous processing for analytics (e.g., message queue)
-- Add URL expiration
 - Allow custom short codes for PRO users
 - Add bulk URL shortening endpoint
 - Improve logging and monitoring

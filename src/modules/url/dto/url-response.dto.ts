@@ -13,6 +13,14 @@ export class UrlResponseDto {
   @ApiProperty()
   createdAt!: Date;
 
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    format: 'date-time',
+    example: '2026-12-31T23:59:59.000Z',
+  })
+  expiresAt!: Date | null;
+
   @ApiProperty({ format: 'uuid' })
   userId!: string;
 }

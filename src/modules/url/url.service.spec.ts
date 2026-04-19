@@ -110,6 +110,34 @@ describe('UrlService', () => {
       expect(urlRepo.exist).toHaveBeenCalledTimes(2);
       expect(urlRepo.save).toHaveBeenCalledTimes(1);
     });
+
+    it('persists a future expiresAt on the new URL', async () => {
+      const user = makeUser({ plan: UserPlan.FREE });
+      urlRepo.count!.mockResolvedValue(0);
+      urlRepo.exist!.mockResolvedValue(false);
+      urlRepo.create!.mockImplementation((entity) => entity);
+      urlRepo.save!.mockImplementation((entity) =>
+        Promise.resolve({ ...entity, id: 'url-1' }),
+      );
+
+      const future = new Date(Date.now() + 86_400_000).toISOString();
+      await service.shorten({ ...dto, expiresAt: future }, user);
+
+      expect(urlRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ expiresAt: new Date(future) }),
+      );
+    });
+
+    it('rejects an expiresAt that is not in the future', async () => {
+      const user = makeUser({ plan: UserPlan.FREE });
+      urlRepo.count!.mockResolvedValue(0);
+
+      const past = new Date(Date.now() - 1_000).toISOString();
+      await expect(
+        service.shorten({ ...dto, expiresAt: past }, user),
+      ).rejects.toThrow('expiresAt must be in the future');
+      expect(urlRepo.save).not.toHaveBeenCalled();
+    });
   });
 
   describe('findByShortCodeOrFail', () => {
@@ -126,6 +154,46 @@ describe('UrlService', () => {
       await expect(service.findByShortCodeOrFail('missing')).rejects.toThrow(
         'Short URL not found',
       );
+    });
+  });
+
+  describe('findActiveByShortCodeOrFail', () => {
+    it('returns the URL when it has no expiration', async () => {
+      const url = { id: 'url-1', shortCode: 'abc', expiresAt: null } as Url;
+      urlRepo.findOne!.mockResolvedValue(url);
+
+      await expect(service.findActiveByShortCodeOrFail('abc')).resolves.toBe(url);
+    });
+
+    it('returns the URL when expiresAt is in the future', async () => {
+      const url = {
+        id: 'url-1',
+        shortCode: 'abc',
+        expiresAt: new Date(Date.now() + 60_000),
+      } as Url;
+      urlRepo.findOne!.mockResolvedValue(url);
+
+      await expect(service.findActiveByShortCodeOrFail('abc')).resolves.toBe(url);
+    });
+
+    it('throws GoneException when expiresAt is in the past', async () => {
+      urlRepo.findOne!.mockResolvedValue({
+        id: 'url-1',
+        shortCode: 'abc',
+        expiresAt: new Date(Date.now() - 60_000),
+      } as Url);
+
+      await expect(
+        service.findActiveByShortCodeOrFail('abc'),
+      ).rejects.toThrow('Short URL has expired');
+    });
+
+    it('propagates NotFoundException when the code is unknown', async () => {
+      urlRepo.findOne!.mockResolvedValue(null);
+
+      await expect(
+        service.findActiveByShortCodeOrFail('missing'),
+      ).rejects.toThrow('Short URL not found');
     });
   });
 
