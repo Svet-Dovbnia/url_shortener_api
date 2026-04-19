@@ -111,6 +111,18 @@ describe('UrlService', () => {
       expect(urlRepo.save).toHaveBeenCalledTimes(1);
     });
 
+    it('gives up after 5 collisions and throws InternalServerErrorException', async () => {
+      const user = makeUser({ plan: UserPlan.FREE });
+      urlRepo.count!.mockResolvedValue(0);
+      urlRepo.exist!.mockResolvedValue(true);
+
+      await expect(service.shorten(dto, user)).rejects.toThrow(
+        'Could not generate a unique short code, please retry',
+      );
+      expect(urlRepo.exist).toHaveBeenCalledTimes(5);
+      expect(urlRepo.save).not.toHaveBeenCalled();
+    });
+
     it('persists a future expiresAt on the new URL', async () => {
       const user = makeUser({ plan: UserPlan.FREE });
       urlRepo.count!.mockResolvedValue(0);

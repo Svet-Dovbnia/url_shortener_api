@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   GoneException,
   Injectable,
+  InternalServerErrorException,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
@@ -20,6 +21,7 @@ import { MONTHLY_QUOTA, startOfCurrentMonthUTC } from './url.quota';
 const SHORT_CODE_LENGTH = 8;
 const SHORT_CODE_ALPHABET =
   'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+const SHORT_CODE_MAX_ATTEMPTS = 5;
 const generateShortCode = customAlphabet(SHORT_CODE_ALPHABET, SHORT_CODE_LENGTH);
 const RECENT_CLICKS_LIMIT = 50;
 
@@ -153,7 +155,7 @@ export class UrlService {
   }
 
   private async generateUniqueShortCode(): Promise<string> {
-    while (true) {
+    for (let attempt = 1; attempt <= SHORT_CODE_MAX_ATTEMPTS; attempt += 1) {
       const code = generateShortCode();
       const exists = await this.urlRepository.exist({
         where: { shortCode: code },
@@ -162,6 +164,12 @@ export class UrlService {
         return code;
       }
     }
+    this.logger.error(
+      `Failed to generate a unique short code after ${SHORT_CODE_MAX_ATTEMPTS} attempts`,
+    );
+    throw new InternalServerErrorException(
+      'Could not generate a unique short code, please retry',
+    );
   }
 }
 
