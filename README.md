@@ -16,6 +16,7 @@ A backend API for a URL shortening service with user authentication, subscriptio
 - Usage tracking per user
 - HTTP 302 redirect with asynchronous click tracking
 - Optional URL expiration — expired codes return `410 Gone`
+- Custom short codes for PRO users (6–8 alphanumeric characters)
 - Click analytics for PRO users (total count + recent history)
 - Rate limiting — 60 requests/minute per API key (falls back to IP)
 
@@ -134,7 +135,7 @@ curl -X POST http://localhost:3000/user \
 
 ### Shorten a URL
 
-`expiresAt` is optional; if provided it must be a future ISO-8601 timestamp. Expired codes respond with `410 Gone`.
+`expiresAt` is optional; if provided it must be a future ISO-8601 timestamp. Expired codes respond with `410 Gone`. `shortCode` is optional and PRO-only — 6–8 alphanumeric characters; a taken code responds with `409 Conflict`.
 
 ```bash
 curl -X POST http://localhost:3000/url/shorten \
@@ -243,7 +244,6 @@ Validation errors from `class-validator` return the field-level details as a str
 - Add Redis caching for frequently accessed URLs
 - Back the rate limiter with Redis so limits survive restarts and scale across instances
 - Add asynchronous processing for analytics (e.g., message queue)
-- Allow custom short codes for PRO users
 - Add bulk URL shortening endpoint
 - Improve logging and monitoring
 

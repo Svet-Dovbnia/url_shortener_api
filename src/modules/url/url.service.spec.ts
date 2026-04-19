@@ -138,6 +138,48 @@ describe('UrlService', () => {
       ).rejects.toThrow('expiresAt must be in the future');
       expect(urlRepo.save).not.toHaveBeenCalled();
     });
+
+    it('uses a custom short code for a PRO user when it is available', async () => {
+      const user = makeUser({ plan: UserPlan.PRO });
+      urlRepo.count!.mockResolvedValue(0);
+      urlRepo.exist!.mockResolvedValue(false);
+      urlRepo.create!.mockImplementation((entity) => entity);
+      urlRepo.save!.mockImplementation((entity) =>
+        Promise.resolve({ ...entity, id: 'url-1' }),
+      );
+
+      const result = await service.shorten(
+        { ...dto, shortCode: 'myLink01' },
+        user,
+      );
+
+      expect(urlRepo.exist).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { shortCode: 'myLink01' } }),
+      );
+      expect(result).toMatchObject({ shortCode: 'myLink01' });
+    });
+
+    it('throws ConflictException when a PRO user requests a taken short code', async () => {
+      const user = makeUser({ plan: UserPlan.PRO });
+      urlRepo.count!.mockResolvedValue(0);
+      urlRepo.exist!.mockResolvedValue(true);
+
+      await expect(
+        service.shorten({ ...dto, shortCode: 'myLink01' }, user),
+      ).rejects.toThrow('Short code is already taken');
+      expect(urlRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('throws ForbiddenException when a FREE user requests a custom short code', async () => {
+      const user = makeUser({ plan: UserPlan.FREE });
+      urlRepo.count!.mockResolvedValue(0);
+
+      await expect(
+        service.shorten({ ...dto, shortCode: 'myLink01' }, user),
+      ).rejects.toThrow(/PRO plan only/);
+      expect(urlRepo.exist).not.toHaveBeenCalled();
+      expect(urlRepo.save).not.toHaveBeenCalled();
+    });
   });
 
   describe('findByShortCodeOrFail', () => {

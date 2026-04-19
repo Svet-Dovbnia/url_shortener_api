@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   GoneException,
   Injectable,
@@ -53,7 +54,7 @@ export class UrlService {
 
     const expiresAt = parseFutureExpiry(dto.expiresAt);
 
-    const shortCode = await this.generateUniqueShortCode();
+    const shortCode = await this.resolveShortCode(dto.shortCode, user);
     const url = this.urlRepository.create({
       originalUrl: dto.originalUrl,
       shortCode,
@@ -127,6 +128,29 @@ export class UrlService {
         err instanceof Error ? err.stack : String(err),
       );
     }
+  }
+
+  private async resolveShortCode(
+    requested: string | undefined,
+    user: User,
+  ): Promise<string> {
+    if (!requested) {
+      return this.generateUniqueShortCode();
+    }
+
+    if (user.plan !== UserPlan.PRO) {
+      throw new ForbiddenException(
+        'Custom short codes are available on the PRO plan only',
+      );
+    }
+
+    const taken = await this.urlRepository.exist({
+      where: { shortCode: requested },
+    });
+    if (taken) {
+      throw new ConflictException('Short code is already taken');
+    }
+    return requested;
   }
 
   private async generateUniqueShortCode(): Promise<string> {
