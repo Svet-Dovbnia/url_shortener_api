@@ -19,6 +19,7 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import { UsageResponseDto } from './dto/usage-response.dto';
 import { ApiKeyGuard } from '../../common/guards/api-key.guard';
+import { AdminApiKeyGuard } from '../../common/guards/admin-api-key.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
 @ApiTags('User')
@@ -27,8 +28,14 @@ export class UserController {
   constructor(private readonly userService: UserService) {}
 
   @Post()
+  @UseGuards(AdminApiKeyGuard)
+  @ApiSecurity('admin-key')
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Create a new user and issue an API key' })
+  @ApiOperation({
+    summary: 'Create a new user and issue an API key',
+    description:
+      'Protected by x-admin-key when ADMIN_API_KEY is set; open otherwise for local bootstrap.',
+  })
   @ApiResponse({ status: HttpStatus.CREATED, type: UserResponseDto })
   create(@Body() dto: CreateUserDto): Promise<UserResponseDto> {
     return this.userService.create(dto);

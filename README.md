@@ -86,11 +86,24 @@ Business logic lives in the service layer; see `src/modules/user/user.service.sp
 
 ## Authentication
 
-All endpoints except the redirect require an API key passed via header:
+All endpoints except the redirect and user creation require an API key passed via header:
 
 ```http
 x-api-key: usr_xxxxxxxxxxxxxxxxxxxxxxxx
 ```
+
+### Bootstrap: `POST /user`
+
+User creation is the bootstrap path — a new client has no API key yet, so it can't authenticate with `x-api-key`. It is guarded by a separate shared admin secret via the `x-admin-key` header:
+
+```http
+x-admin-key: <ADMIN_API_KEY>
+```
+
+- If the `ADMIN_API_KEY` environment variable is **set**, `POST /user` rejects requests without a matching `x-admin-key` header (`401 Unauthorized`).
+- If `ADMIN_API_KEY` is **empty or unset**, the endpoint is open (useful for local development). The app logs a warning on startup so this is never silent.
+
+**Set `ADMIN_API_KEY` in any non-local deployment.**
 
 ---
 
@@ -98,18 +111,20 @@ x-api-key: usr_xxxxxxxxxxxxxxxxxxxxxxxx
 
 ### User
 
-| Method | Path            | Auth | Description                   |
-| ------ | --------------- | :--: | ----------------------------- |
-| POST   | `/user`         |  —   | Create a new user             |
-| GET    | `/user/usage`   |  ✓   | Get the caller's usage stats  |
+| Method | Path            | Auth               | Description                   |
+| ------ | --------------- | :----------------: | ----------------------------- |
+| POST   | `/user`         | `x-admin-key`¹     | Create a new user             |
+| GET    | `/user/usage`   | `x-api-key`        | Get the caller's usage stats  |
+
+¹ Required only when `ADMIN_API_KEY` is configured; see [Authentication](#authentication).
 
 ### URL
 
-| Method | Path                       | Auth | Description                       |
-| ------ | -------------------------- | :--: | --------------------------------- |
-| POST   | `/url/shorten`             |  ✓   | Shorten a URL                     |
-| GET    | `/url/:shortCode/stats`    |  ✓   | Get URL stats (PRO only)          |
-| GET    | `/:shortCode`              |  —   | Redirect (HTTP 302)               |
+| Method | Path                       | Auth        | Description                       |
+| ------ | -------------------------- | :---------: | --------------------------------- |
+| POST   | `/url/shorten`             | `x-api-key` | Shorten a URL                     |
+| GET    | `/url/:shortCode/stats`    | `x-api-key` | Get URL stats (PRO only)          |
+| GET    | `/:shortCode`              |      —      | Redirect (HTTP 302)               |
 
 ---
 
@@ -120,8 +135,11 @@ x-api-key: usr_xxxxxxxxxxxxxxxxxxxxxxxx
 ```bash
 curl -X POST http://localhost:3000/user \
   -H "Content-Type: application/json" \
+  -H "x-admin-key: $ADMIN_API_KEY" \
   -d '{"email": "user@example.com"}'
 ```
+
+> `x-admin-key` can be omitted during local development when `ADMIN_API_KEY` is unset.
 
 ```json
 {
@@ -230,7 +248,7 @@ Validation errors from `class-validator` return the field-level details as a str
 - **Click tracking is fire-and-forget**: the insert runs after the redirect is sent, and a failing DB insert is logged but never surfaced to the client.
 - **Stats endpoint returns the 50 most recent clicks** — enough to be useful without paginating. Total count is always accurate.
 - **Error body is always `{ statusCode, message }`** — timestamps, paths, and stack traces stay in the server log.
-- `POST /user` is intentionally unauthenticated so new clients can bootstrap an API key.
+- `POST /user` is guarded by a shared admin secret (`ADMIN_API_KEY`) rather than a per-user API key — a new client has no key to present yet. The guard is permissive when `ADMIN_API_KEY` is unset to keep local development frictionless, and logs a warning so the open state is never silent.
 
 ---
 

@@ -28,6 +28,10 @@ async function bootstrap(): Promise<void> {
     .addTag('User')
     .addTag('URL')
     .addApiKey({ type: 'apiKey', name: 'x-api-key', in: 'header' }, 'api-key')
+    .addApiKey(
+      { type: 'apiKey', name: 'x-admin-key', in: 'header' },
+      'admin-key',
+    )
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);
