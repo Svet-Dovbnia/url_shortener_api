@@ -16,6 +16,7 @@ A backend API for a URL shortening service with user authentication, subscriptio
 - Usage tracking per user
 - HTTP 302 redirect with asynchronous click tracking
 - Click analytics for PRO users (total count + recent history)
+- Rate limiting — 60 requests/minute per API key (falls back to IP)
 
 ---
 
@@ -227,14 +228,15 @@ Validation errors from `class-validator` return the field-level details as a str
 ## Current Limitations
 
 - Click history in the stats endpoint is capped at the 50 most recent entries (no pagination)
-- Rate limiting and caching are not implemented
+- Rate-limit counters live in memory — they reset on restart and don't scale across multiple API instances
+- No response caching for hot short codes
 
 ---
 
 ## Possible Improvements
 
 - Add Redis caching for frequently accessed URLs
-- Implement rate limiting per API key
+- Back the rate limiter with Redis so limits survive restarts and scale across instances
 - Add asynchronous processing for analytics (e.g., message queue)
 - Add URL expiration
 - Allow custom short codes for PRO users
