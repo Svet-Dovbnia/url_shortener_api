@@ -245,7 +245,7 @@ Validation errors from `class-validator` return the field-level details as a str
 - **Short codes** are 8-character `nanoid` values. Collisions are possible in theory, so `shorten` retries until it finds a free code.
 - **API keys** are issued on user creation (`usr_` prefix + 24-char `nanoid`) and cannot be rotated yet.
 - **Redirect uses HTTP 302** rather than 301 so every hit reaches the server and can be counted. A 301 would be cached by browsers and skew analytics.
-- **Click tracking is fire-and-forget**: the insert runs after the redirect is sent, and a failing DB insert is logged but never surfaced to the client.
+- **Click tracking is fire-and-forget** — the redirect flushes before the insert resolves, and a failing DB insert is logged but never surfaced to the client. The insert still runs in the API process, so "async" here means the *request* isn't blocked, not that analytics is on a separate worker. For real load the insert should be published to a queue (BullMQ/Kafka/SQS) and consumed out-of-band; that change stays confined to `UrlService.recordClick`.
 - **Stats endpoint returns the 50 most recent clicks** — enough to be useful without paginating. Total count is always accurate.
 - **Error body is always `{ statusCode, message }`** — timestamps, paths, and stack traces stay in the server log.
 - `POST /user` is guarded by a shared admin secret (`ADMIN_API_KEY`) rather than a per-user API key — a new client has no key to present yet. The guard is permissive when `ADMIN_API_KEY` is unset to keep local development frictionless, and logs a warning so the open state is never silent.

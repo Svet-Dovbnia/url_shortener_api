@@ -69,6 +69,9 @@ export class UrlController {
     @Res() res: Response,
   ): Promise<void> {
     const url = await this.urlService.findActiveByShortCodeOrFail(shortCode);
+    // Fire-and-forget: redirect is never blocked by the click insert.
+    // Trade-off: the promise still runs in-process. At scale, publish to a
+    // queue (e.g. BullMQ/Kafka/SQS) so analytics is truly out-of-band.
     void this.urlService.recordClick(
       url.id,
       req.ip ?? null,
