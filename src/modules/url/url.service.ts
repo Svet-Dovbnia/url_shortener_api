@@ -8,6 +8,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { MoreThanOrEqual, Repository } from 'typeorm';
 import { customAlphabet } from 'nanoid';
@@ -17,6 +18,8 @@ import { User, UserPlan } from '../user/user.entity';
 import { CreateUrlDto } from './dto/create-url.dto';
 import { UrlStatsDto } from './dto/url-stats.dto';
 import { MONTHLY_QUOTA, startOfCurrentMonthUTC } from './url.quota';
+import { CacheService } from '../../common/cache/cache.service';
+import { AppConfig } from '../../config/app.config';
 
 const SHORT_CODE_LENGTH = 8;
 const SHORT_CODE_ALPHABET =
@@ -24,6 +27,17 @@ const SHORT_CODE_ALPHABET =
 const SHORT_CODE_MAX_ATTEMPTS = 5;
 const generateShortCode = customAlphabet(SHORT_CODE_ALPHABET, SHORT_CODE_LENGTH);
 const RECENT_CLICKS_LIMIT = 50;
+
+interface CachedUrl {
+  id: string;
+  shortCode: string;
+  originalUrl: string;
+  expiresAt: string | null;
+}
+
+function cacheKey(shortCode: string): string {
+  return `url:code:${shortCode}`;
+}
 
 @Injectable()
 export class UrlService {
@@ -34,6 +48,8 @@ export class UrlService {
     private readonly urlRepository: Repository<Url>,
     @InjectRepository(Click)
     private readonly clickRepository: Repository<Click>,
+    private readonly cacheService: CacheService,
+    private readonly configService: ConfigService,
   ) {}
 
   async shorten(dto: CreateUrlDto, user: User): Promise<Url> {
@@ -109,11 +125,29 @@ export class UrlService {
   }
 
   async findActiveByShortCodeOrFail(shortCode: string): Promise<Url> {
+    const cached = await this.cacheService.get<CachedUrl>(cacheKey(shortCode));
+    if (cached) {
+      const revived = reviveCachedUrl(cached);
+      if (isExpired(revived)) {
+        await this.cacheService.del(cacheKey(shortCode));
+        throw new GoneException('Short URL has expired');
+      }
+      return revived;
+    }
+
     const url = await this.findByShortCodeOrFail(shortCode);
-    if (url.expiresAt && url.expiresAt.getTime() <= Date.now()) {
+    if (isExpired(url)) {
       throw new GoneException('Short URL has expired');
     }
+    void this.cacheService.set(cacheKey(shortCode), toCached(url), this.cacheTtlFor(url));
     return url;
+  }
+
+  private cacheTtlFor(url: Url): number {
+    const defaultTtl = this.configService.getOrThrow<AppConfig>('app').urlCacheTtlSeconds;
+    if (!url.expiresAt) return defaultTtl;
+    const secondsUntilExpiry = Math.floor((url.expiresAt.getTime() - Date.now()) / 1000);
+    return Math.max(0, Math.min(defaultTtl, secondsUntilExpiry));
   }
 
   async recordClick(
@@ -171,6 +205,28 @@ export class UrlService {
       'Could not generate a unique short code, please retry',
     );
   }
+}
+
+function isExpired(url: Pick<Url, 'expiresAt'>): boolean {
+  return url.expiresAt !== null && url.expiresAt.getTime() <= Date.now();
+}
+
+function toCached(url: Url): CachedUrl {
+  return {
+    id: url.id,
+    shortCode: url.shortCode,
+    originalUrl: url.originalUrl,
+    expiresAt: url.expiresAt ? url.expiresAt.toISOString() : null,
+  };
+}
+
+function reviveCachedUrl(cached: CachedUrl): Url {
+  return {
+    id: cached.id,
+    shortCode: cached.shortCode,
+    originalUrl: cached.originalUrl,
+    expiresAt: cached.expiresAt ? new Date(cached.expiresAt) : null,
+  } as Url;
 }
 
 function parseFutureExpiry(raw: string | undefined): Date | null {

@@ -19,6 +19,7 @@ A backend API for a URL shortening service with user authentication, subscriptio
 - Custom short codes for PRO users (6–8 alphanumeric characters)
 - Click analytics for PRO users (total count + recent history)
 - Rate limiting — 60 requests/minute per API key (falls back to IP)
+- Optional Redis caching for the redirect hot path (graceful degrade when disabled)
 
 ---
 
@@ -49,6 +50,10 @@ DB_PORT=5432
 DB_USERNAME=postgres
 DB_PASSWORD=postgres
 DB_NAME=url_shortener
+
+# Optional: enable Redis caching for the redirect path
+# REDIS_URL=redis://localhost:6379
+URL_CACHE_TTL_SECONDS=300
 ```
 
 ### 4. Run the application
@@ -69,7 +74,7 @@ Alternatively, bring up the API and PostgreSQL together:
 docker compose up --build
 ```
 
-The API is available at <http://localhost:3000>, Swagger at <http://localhost:3000/docs>, and Postgres on `localhost:5432`. Shutdown with `docker compose down`; add `-v` to also drop the `pgdata` volume.
+The API is available at <http://localhost:3000>, Swagger at <http://localhost:3000/docs>, Postgres on `localhost:5432`, and Redis on `localhost:6379`. Shutdown with `docker compose down`; add `-v` to also drop the `pgdata` volume.
 
 ### Running tests
 
@@ -248,6 +253,7 @@ Validation errors from `class-validator` return the field-level details as a str
 - **API keys** are issued on user creation (`usr_` prefix + 24-char `nanoid`) and cannot be rotated yet.
 - **Redirect uses HTTP 302** rather than 301 so every hit reaches the server and can be counted. A 301 would be cached by browsers and skew analytics.
 - **Click tracking is fire-and-forget** — the redirect flushes before the insert resolves, and a failing DB insert is logged but never surfaced to the client. The insert still runs in the API process, so "async" here means the *request* isn't blocked, not that analytics is on a separate worker. For real load the insert should be published to a queue (BullMQ/Kafka/SQS) and consumed out-of-band; that change stays confined to `UrlService.recordClick`.
+- **Redirect cache is optional and best-effort** — when `REDIS_URL` is set, `GET /:shortCode` reads from Redis first and falls back to Postgres on a miss, populating the cache with a TTL capped at the URL's remaining lifetime (so an expired URL never out-lives its cache entry). Cache operations are wrapped in try/catch and degrade to DB-only on any Redis error, so a Redis outage never breaks redirects. When `REDIS_URL` is unset the service runs as before.
 - **Stats endpoint returns the 50 most recent clicks** — enough to be useful without paginating. Total count is always accurate.
 - **Error body is always `{ statusCode, message }`** — timestamps, paths, and stack traces stay in the server log.
 - `POST /user` is guarded by a shared admin secret (`ADMIN_API_KEY`) rather than a per-user API key — a new client has no key to present yet. The guard is permissive when `ADMIN_API_KEY` is unset to keep local development frictionless, and logs a warning so the open state is never silent.
@@ -258,13 +264,11 @@ Validation errors from `class-validator` return the field-level details as a str
 
 - Click history in the stats endpoint is capped at the 50 most recent entries (no pagination)
 - Rate-limit counters live in memory — they reset on restart and don't scale across multiple API instances
-- No response caching for hot short codes
 
 ---
 
 ## Possible Improvements
 
-- Add Redis caching for frequently accessed URLs
 - Back the rate limiter with Redis so limits survive restarts and scale across instances
 - Add asynchronous processing for analytics (e.g., message queue)
 - Add bulk URL shortening endpoint

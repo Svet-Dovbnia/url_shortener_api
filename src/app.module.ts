@@ -8,6 +8,7 @@ import databaseConfig from './config/database.config';
 import { typeOrmAsyncConfig } from './config/typeorm.config';
 import { UserModule } from './modules/user/user.module';
 import { UrlModule } from './modules/url/url.module';
+import { CacheModule } from './common/cache/cache.module';
 import { ApiKeyThrottlerGuard } from './common/guards/api-key-throttler.guard';
 
 @Module({
@@ -18,6 +19,7 @@ import { ApiKeyThrottlerGuard } from './common/guards/api-key-throttler.guard';
     }),
     TypeOrmModule.forRootAsync(typeOrmAsyncConfig),
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 60 }]),
+    CacheModule,
     UserModule,
     UrlModule,
   ],

@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { ConfigService } from '@nestjs/config';
 import { Logger } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { UrlService } from './url.service';
@@ -7,6 +8,7 @@ import { Url } from './url.entity';
 import { Click } from './click.entity';
 import { User, UserPlan } from '../user/user.entity';
 import { CreateUrlDto } from './dto/create-url.dto';
+import { CacheService } from '../../common/cache/cache.service';
 
 type MockRepo<T extends object> = Partial<
   Record<keyof Repository<T>, jest.Mock>
@@ -25,20 +27,39 @@ const createMockRepo = <T extends object>(): MockRepo<T> => ({
 const makeUser = (overrides: Partial<User> = {}): User =>
   ({ id: 'u1', plan: UserPlan.FREE, ...overrides }) as User;
 
+type MockCache = {
+  get: jest.Mock;
+  set: jest.Mock;
+  del: jest.Mock;
+};
+
 describe('UrlService', () => {
   let service: UrlService;
   let urlRepo: MockRepo<Url>;
   let clickRepo: MockRepo<Click>;
+  let cache: MockCache;
 
   beforeEach(async () => {
     urlRepo = createMockRepo<Url>();
     clickRepo = createMockRepo<Click>();
+    cache = {
+      get: jest.fn().mockResolvedValue(null),
+      set: jest.fn().mockResolvedValue(undefined),
+      del: jest.fn().mockResolvedValue(undefined),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         UrlService,
         { provide: getRepositoryToken(Url), useValue: urlRepo },
         { provide: getRepositoryToken(Click), useValue: clickRepo },
+        { provide: CacheService, useValue: cache },
+        {
+          provide: ConfigService,
+          useValue: {
+            getOrThrow: () => ({ urlCacheTtlSeconds: 300 }),
+          },
+        },
       ],
     }).compile();
 
@@ -248,6 +269,71 @@ describe('UrlService', () => {
       await expect(
         service.findActiveByShortCodeOrFail('missing'),
       ).rejects.toThrow('Short URL not found');
+    });
+
+    it('returns a cached URL without hitting the database', async () => {
+      cache.get.mockResolvedValue({
+        id: 'url-1',
+        shortCode: 'abc',
+        originalUrl: 'https://example.com',
+        expiresAt: null,
+      });
+
+      const result = await service.findActiveByShortCodeOrFail('abc');
+
+      expect(urlRepo.findOne).not.toHaveBeenCalled();
+      expect(result).toMatchObject({
+        id: 'url-1',
+        shortCode: 'abc',
+        originalUrl: 'https://example.com',
+        expiresAt: null,
+      });
+    });
+
+    it('evicts the cache entry and throws GoneException when the cached URL has expired', async () => {
+      cache.get.mockResolvedValue({
+        id: 'url-1',
+        shortCode: 'abc',
+        originalUrl: 'https://example.com',
+        expiresAt: new Date(Date.now() - 60_000).toISOString(),
+      });
+
+      await expect(service.findActiveByShortCodeOrFail('abc')).rejects.toThrow(
+        'Short URL has expired',
+      );
+      expect(cache.del).toHaveBeenCalledWith('url:code:abc');
+    });
+
+    it('populates the cache on a miss with the default TTL for URLs without expiry', async () => {
+      urlRepo.findOne!.mockResolvedValue({
+        id: 'url-1',
+        shortCode: 'abc',
+        originalUrl: 'https://example.com',
+        expiresAt: null,
+      } as Url);
+
+      await service.findActiveByShortCodeOrFail('abc');
+
+      expect(cache.set).toHaveBeenCalledWith(
+        'url:code:abc',
+        expect.objectContaining({ id: 'url-1', expiresAt: null }),
+        300,
+      );
+    });
+
+    it('caps cache TTL at the time remaining until expiresAt', async () => {
+      urlRepo.findOne!.mockResolvedValue({
+        id: 'url-1',
+        shortCode: 'abc',
+        originalUrl: 'https://example.com',
+        expiresAt: new Date(Date.now() + 60_000),
+      } as Url);
+
+      await service.findActiveByShortCodeOrFail('abc');
+
+      const [, , ttl] = cache.set.mock.calls[0];
+      expect(ttl).toBeGreaterThan(0);
+      expect(ttl).toBeLessThanOrEqual(60);
     });
   });
 
