@@ -58,6 +58,16 @@ yarn start:dev
 
 Available at <http://localhost:3000/docs>.
 
+### Running with Docker
+
+Alternatively, bring up the API and PostgreSQL together:
+
+```bash
+docker compose up --build
+```
+
+The API is available at <http://localhost:3000>, Swagger at <http://localhost:3000/docs>, and Postgres on `localhost:5432`. Shutdown with `docker compose down`; add `-v` to also drop the `pgdata` volume.
+
 ### Running tests
 
 ```bash
@@ -229,7 +239,6 @@ Validation errors from `class-validator` return the field-level details as a str
 - Add URL expiration
 - Allow custom short codes for PRO users
 - Add bulk URL shortening endpoint
-- Add Docker support (Dockerfile + docker-compose)
 - Add integration (e2e) tests with test containers
 - Improve logging and monitoring
 
