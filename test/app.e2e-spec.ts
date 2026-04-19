@@ -84,11 +84,14 @@ describe('URL Shortener API (e2e)', () => {
       .get('/user/usage')
       .set('x-api-key', apiKey)
       .expect(200);
-    expect(usageRes.body).toEqual({
+    expect(usageRes.body).toMatchObject({
       userId,
       plan: 'FREE',
-      totalUrls: 1,
+      limit: 10,
+      usedThisMonth: 1,
+      remaining: 9,
     });
+    expect(typeof usageRes.body.resetsAt).toBe('string');
   });
 
   it('enforces auth, plan gate, and not-found error shape', async () => {

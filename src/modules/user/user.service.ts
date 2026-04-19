@@ -1,8 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { MoreThanOrEqual, Repository } from 'typeorm';
 import { User, UserPlan } from './user.entity';
 import { Url } from '../url/url.entity';
+import {
+  MONTHLY_QUOTA,
+  startOfCurrentMonthUTC,
+  startOfNextMonthUTC,
+} from '../url/url.quota';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UsageResponseDto } from './dto/usage-response.dto';
 
@@ -28,13 +33,20 @@ export class UserService {
   }
 
   async getUsage(user: User): Promise<UsageResponseDto> {
-    const totalUrls = await this.urlRepository.count({
-      where: { userId: user.id },
+    const limit = MONTHLY_QUOTA[user.plan];
+    const usedThisMonth = await this.urlRepository.count({
+      where: {
+        userId: user.id,
+        createdAt: MoreThanOrEqual(startOfCurrentMonthUTC()),
+      },
     });
     return {
       userId: user.id,
       plan: user.plan,
-      totalUrls,
+      limit,
+      usedThisMonth,
+      remaining: Math.max(0, limit - usedThisMonth),
+      resetsAt: startOfNextMonthUTC(),
     };
   }
 }

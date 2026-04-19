@@ -177,7 +177,10 @@ curl http://localhost:3000/user/usage \
 {
   "userId": "c0a8012e-8b1c-4e1c-9d3a-1f5b2c3d4e5f",
   "plan": "FREE",
-  "totalUrls": 3
+  "limit": 10,
+  "usedThisMonth": 3,
+  "remaining": 7,
+  "resetsAt": "2026-05-01T00:00:00.000Z"
 }
 ```
 

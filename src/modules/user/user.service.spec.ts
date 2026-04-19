@@ -85,33 +85,49 @@ describe('UserService', () => {
   });
 
   describe('getUsage', () => {
-    it('returns userId, plan, and the total URL count for the caller', async () => {
+    it('returns the quota window for a PRO caller', async () => {
       const user = { id: 'u1', plan: UserPlan.PRO } as User;
       urlRepo.count!.mockResolvedValue(7);
 
       const result = await service.getUsage(user);
 
-      expect(urlRepo.count).toHaveBeenCalledWith({
-        where: { userId: user.id },
-      });
-      expect(result).toEqual({
+      expect(urlRepo.count).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ userId: user.id }),
+        }),
+      );
+      expect(result).toMatchObject({
         userId: 'u1',
         plan: UserPlan.PRO,
-        totalUrls: 7,
+        limit: 100,
+        usedThisMonth: 7,
+        remaining: 93,
       });
+      expect(result.resetsAt).toBeInstanceOf(Date);
     });
 
-    it('returns zero when the user has no URLs', async () => {
+    it('returns full remaining quota for a FREE user with no URLs this month', async () => {
       const user = { id: 'u2', plan: UserPlan.FREE } as User;
       urlRepo.count!.mockResolvedValue(0);
 
       const result = await service.getUsage(user);
 
-      expect(result).toEqual({
+      expect(result).toMatchObject({
         userId: 'u2',
         plan: UserPlan.FREE,
-        totalUrls: 0,
+        limit: 10,
+        usedThisMonth: 0,
+        remaining: 10,
       });
+    });
+
+    it('clamps remaining at zero when usage has reached the limit', async () => {
+      const user = { id: 'u3', plan: UserPlan.FREE } as User;
+      urlRepo.count!.mockResolvedValue(10);
+
+      const result = await service.getUsage(user);
+
+      expect(result.remaining).toBe(0);
     });
   });
 });

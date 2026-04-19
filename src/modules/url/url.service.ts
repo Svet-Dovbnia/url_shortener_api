@@ -15,17 +15,13 @@ import { Click } from './click.entity';
 import { User, UserPlan } from '../user/user.entity';
 import { CreateUrlDto } from './dto/create-url.dto';
 import { UrlStatsDto } from './dto/url-stats.dto';
+import { MONTHLY_QUOTA, startOfCurrentMonthUTC } from './url.quota';
 
 const SHORT_CODE_LENGTH = 8;
 const SHORT_CODE_ALPHABET =
   'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
 const generateShortCode = customAlphabet(SHORT_CODE_ALPHABET, SHORT_CODE_LENGTH);
 const RECENT_CLICKS_LIMIT = 50;
-
-const MONTHLY_QUOTA: Record<UserPlan, number> = {
-  [UserPlan.FREE]: 10,
-  [UserPlan.PRO]: 100,
-};
 
 @Injectable()
 export class UrlService {
@@ -40,7 +36,7 @@ export class UrlService {
 
   async shorten(dto: CreateUrlDto, user: User): Promise<Url> {
     const limit = MONTHLY_QUOTA[user.plan];
-    const monthStart = startOfCurrentMonth();
+    const monthStart = startOfCurrentMonthUTC();
 
     const usedThisMonth = await this.urlRepository.count({
       where: {
@@ -167,11 +163,6 @@ export class UrlService {
       }
     }
   }
-}
-
-function startOfCurrentMonth(): Date {
-  const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
 }
 
 function parseFutureExpiry(raw: string | undefined): Date | null {
