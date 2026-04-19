@@ -8,6 +8,11 @@ import {
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 
+interface ErrorBody {
+  statusCode: number;
+  message: string | string[];
+}
+
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(HttpExceptionFilter.name);
@@ -22,21 +27,38 @@ export class HttpExceptionFilter implements ExceptionFilter {
         ? exception.getStatus()
         : HttpStatus.INTERNAL_SERVER_ERROR;
 
-    const message =
-      exception instanceof HttpException
-        ? exception.getResponse()
-        : 'Internal server error';
+    const message = extractMessage(exception);
 
+    const flatMessage = Array.isArray(message) ? message.join('; ') : message;
     this.logger.error(
-      `${request.method} ${request.url} → ${status}`,
+      `${request.method} ${request.url} → ${status} — ${flatMessage}`,
       exception instanceof Error ? exception.stack : undefined,
     );
 
-    response.status(status).json({
-      statusCode: status,
-      timestamp: new Date().toISOString(),
-      path: request.url,
-      message,
-    });
+    const body: ErrorBody = { statusCode: status, message };
+    response.status(status).json(body);
   }
+}
+
+function extractMessage(exception: unknown): string | string[] {
+  if (!(exception instanceof HttpException)) {
+    return 'Internal server error';
+  }
+
+  const response = exception.getResponse();
+  if (typeof response === 'string') {
+    return response;
+  }
+
+  if (response && typeof response === 'object' && 'message' in response) {
+    const candidate = (response as { message: unknown }).message;
+    if (typeof candidate === 'string') {
+      return candidate;
+    }
+    if (Array.isArray(candidate) && candidate.every((m) => typeof m === 'string')) {
+      return candidate;
+    }
+  }
+
+  return exception.message;
 }
