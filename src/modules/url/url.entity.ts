@@ -5,9 +5,11 @@ import {
   Index,
   JoinColumn,
   ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
 } from 'typeorm';
 import { User } from '../user/user.entity';
+import { Click } from './click.entity';
 
 @Entity('urls')
 export class Url {
@@ -34,4 +36,7 @@ export class Url {
   })
   @JoinColumn({ name: 'user_id' })
   user!: User;
+
+  @OneToMany(() => Click, (click) => click.url)
+  clicks!: Click[];
 }
