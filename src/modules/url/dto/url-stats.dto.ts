@@ -5,7 +5,7 @@ export class UrlStatsDto {
   shortCode!: string;
 
   @ApiProperty({ example: 0 })
-  totalVisits!: number;
+  totalClicks!: number;
 
   @ApiProperty({ example: 'Placeholder — analytics not yet implemented' })
   message!: string;

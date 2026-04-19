@@ -1,40 +1,44 @@
-URL Shortener API
+# URL Shortener API
 
-Overview
+A backend API for a URL shortening service with user authentication, subscription-based quotas, and analytics.
 
-This project is a backend API for a URL shortening service with user authentication, subscription-based quotas, and analytics.
+**Built with:** NestJS · TypeScript · TypeORM · PostgreSQL
 
-Built with:
+---
 
-* NestJS
-* TypeScript
-* TypeORM
-* PostgreSQL
+## Features
 
-⸻
+- User creation with auto-issued API key
+- API key authentication (`x-api-key` header)
+- URL shortening with unique short codes
+- Quota enforcement — **FREE**: 10/month, **PRO**: 100/month
+- Ownership validation on stats endpoint
+- Usage tracking per user
+- Redirect endpoint (placeholder)
+- Analytics (planned)
 
-Features
+---
 
-* User creation with API key
-* URL shortening
-* Redirect endpoint (placeholder)
-* Usage tracking (partial)
-* Analytics (planned)
+## Setup
 
-⸻
+### 1. Clone the repository
 
-Setup
+```bash
+git clone https://github.com/Svet-Dovbnia/url_shortener_api
+cd url_shortener_api
+```
 
-1. Clone repository 
-git clone <repo-url>
-cd url-shortener
-2. Install dependencies
+### 2. Install dependencies
+
+```bash
 yarn install
-3. Configure environment
+```
 
-Create a .env file based on .env.example
+### 3. Configure the environment
 
-Example:
+Create a `.env` file based on `.env.example`:
+
+```env
 PORT=3000
 
 DB_HOST=localhost
@@ -42,87 +46,103 @@ DB_PORT=5432
 DB_USERNAME=postgres
 DB_PASSWORD=postgres
 DB_NAME=url_shortener
-4. Run the application
-   yarn start:dev
-5. Swagger API documentation
+```
 
-Available at:
-http://localhost:3000/api
+### 4. Run the application
 
-Running Tests
+```bash
+yarn start:dev
+```
+
+### 5. Open the Swagger UI
+
+Available at <http://localhost:3000/docs>.
+
+### Running tests
+
+```bash
 yarn test
+```
 
-Authentication
+---
 
-All endpoints (except redirect) require an API key passed via header:
-x-api-key: usr_xxxxxxxxxxxxxxxxx
+## Authentication
 
-API Endpoints
+All endpoints except the redirect require an API key passed via header:
 
-User
+```http
+x-api-key: usr_xxxxxxxxxxxxxxxxxxxxxxxx
+```
 
-* POST /user — Create a new user
-* GET /user/usage — Get user usage (placeholder)
+---
 
-URL
+## API Endpoints
 
-* POST /url/shorten — Shorten a URL
-* GET /:shortCode — Redirect (mocked)
-* GET /url/:shortCode/stats — Get URL stats (placeholder)
+### User
 
-⸻
+| Method | Path            | Auth | Description                   |
+| ------ | --------------- | :--: | ----------------------------- |
+| POST   | `/user`         |  —   | Create a new user             |
+| GET    | `/user/usage`   |  ✓   | Get user usage (placeholder)  |
 
-Assumptions
+### URL
 
-* Monthly quota will be calculated based on URL creation timestamp
-* Short codes are generated using nanoid
-* Redirect endpoint is currently mocked and will be replaced with HTTP redirect (301/302)
-* Analytics tracking will be implemented asynchronously (non-blocking)
-* SQLite can be used instead of PostgreSQL for local development
-* API key is generated automatically during user creation
+| Method | Path                       | Auth | Description                       |
+| ------ | -------------------------- | :--: | --------------------------------- |
+| POST   | `/url/shorten`             |  ✓   | Shorten a URL                     |
+| GET    | `/url/:shortCode/stats`    |  ✓   | Get URL stats (PRO, placeholder)  |
+| GET    | `/:shortCode`              |  —   | Redirect (mocked)                 |
 
-⸻
+---
 
-Current Limitations
+## Assumptions
 
-* Quota enforcement is not implemented yet
-* Analytics (click tracking) is not implemented yet
-* API key guard is not implemented yet
-* Redirect does not perform real HTTP redirect yet
-* Ownership validation is not implemented yet
+- Monthly quota is calculated from URL creation timestamps
+- Short codes are generated using `nanoid`
+- Redirect endpoint is currently mocked and will be replaced with an HTTP redirect (301/302)
+- Analytics tracking will be implemented asynchronously (non-blocking)
+- SQLite can be used instead of PostgreSQL for local development
+- API key is generated automatically during user creation
 
-⸻
+---
 
-Possible Improvements
+## Current Limitations
 
-* Add Redis caching for frequently accessed URLs
-* Implement rate limiting per API key
-* Add asynchronous processing for analytics (e.g., message queue)
-* Add URL expiration feature
-* Allow custom short codes for PRO users
-* Add bulk URL shortening endpoint
-* Add Docker support (Dockerfile + docker-compose)
-* Add integration (e2e) tests with test containers
-* Improve logging and monitoring
+- Analytics (click tracking) is not implemented yet
+- Redirect does not perform a real HTTP redirect yet (mocked)
 
-⸻
+---
 
-Design Decisions
+## Possible Improvements
 
-* Simple modular architecture to keep the codebase maintainable
-* Business logic placed in services, controllers kept thin
-* No over-engineering (no CQRS, no DDD layers)
-* Database-first approach using TypeORM entities
+- Add Redis caching for frequently accessed URLs
+- Implement rate limiting per API key
+- Add asynchronous processing for analytics (e.g., message queue)
+- Add URL expiration
+- Allow custom short codes for PRO users
+- Add bulk URL shortening endpoint
+- Add Docker support (Dockerfile + docker-compose)
+- Add integration (e2e) tests with test containers
+- Improve logging and monitoring
 
-⸻
+---
 
-Notes
+## Design Decisions
+
+- Simple modular architecture to keep the codebase maintainable
+- Business logic in services, controllers kept thin
+- No over-engineering (no CQRS, no DDD layers)
+- Database-first approach using TypeORM entities
+
+---
+
+## Notes
 
 This project focuses on demonstrating:
 
-* clean architecture
-* proper use of NestJS patterns
-* understanding of backend fundamentals
-* ability to work with incomplete requirements and document assumptions
+- Clean architecture
+- Proper use of NestJS patterns
+- Understanding of backend fundamentals
+- Ability to work with incomplete requirements and document assumptions
 
 Further features can be added incrementally without major refactoring.

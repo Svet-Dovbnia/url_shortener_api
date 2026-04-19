@@ -10,7 +10,4 @@ export class UsageResponseDto {
 
   @ApiProperty({ example: 0 })
   totalUrls!: number;
-
-  @ApiProperty({ example: 'Placeholder — quota tracking not yet implemented' })
-  message!: string;
 }
