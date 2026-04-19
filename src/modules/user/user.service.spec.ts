@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { QueryFailedError, Repository } from 'typeorm';
 import { UserService } from './user.service';
 import { User, UserPlan } from './user.entity';
 import { Url } from '../url/url.entity';
@@ -59,6 +59,30 @@ describe('UserService', () => {
       });
       expect(userRepo.save).toHaveBeenCalledWith(built);
       expect(result).toBe(saved);
+    });
+
+    it('throws ConflictException when the email is already registered', async () => {
+      const dto: CreateUserDto = { email: 'taken@example.com' };
+      userRepo.create!.mockReturnValue({} as User);
+
+      const driverError = Object.assign(new Error('duplicate key'), {
+        code: '23505',
+      });
+      userRepo.save!.mockRejectedValue(
+        new QueryFailedError('insert', [], driverError),
+      );
+
+      await expect(service.create(dto)).rejects.toThrow(
+        'Email already registered',
+      );
+    });
+
+    it('propagates unknown database errors unchanged', async () => {
+      const dto: CreateUserDto = { email: 'user@example.com' };
+      userRepo.create!.mockReturnValue({} as User);
+      userRepo.save!.mockRejectedValue(new Error('db down'));
+
+      await expect(service.create(dto)).rejects.toThrow('db down');
     });
   });
 

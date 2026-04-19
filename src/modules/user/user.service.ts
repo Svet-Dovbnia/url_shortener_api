@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { ConflictException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { MoreThanOrEqual, Repository } from 'typeorm';
+import { MoreThanOrEqual, QueryFailedError, Repository } from 'typeorm';
 import { User, UserPlan } from './user.entity';
 import { Url } from '../url/url.entity';
 import {
@@ -25,7 +25,14 @@ export class UserService {
       email: dto.email,
       plan: UserPlan.FREE,
     });
-    return this.userRepository.save(user);
+    try {
+      return await this.userRepository.save(user);
+    } catch (err) {
+      if (isUniqueViolation(err)) {
+        throw new ConflictException('Email already registered');
+      }
+      throw err;
+    }
   }
 
   findByApiKey(apiKey: string): Promise<User | null> {
@@ -49,4 +56,13 @@ export class UserService {
       resetsAt: startOfNextMonthUTC(),
     };
   }
+}
+
+const UNIQUE_VIOLATION = '23505';
+
+function isUniqueViolation(err: unknown): boolean {
+  return (
+    err instanceof QueryFailedError &&
+    (err.driverError as { code?: string })?.code === UNIQUE_VIOLATION
+  );
 }
