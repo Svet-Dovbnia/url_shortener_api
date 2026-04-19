@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(yarn install *)",
-      "Bash(yarn test:cov)",
-      "Bash(yarn test *)"
-    ]
-  }
-}
