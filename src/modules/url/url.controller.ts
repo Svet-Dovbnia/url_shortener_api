@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Param,
   Post,
+  Req,
   Res,
   UseGuards,
 } from '@nestjs/common';
@@ -16,7 +17,7 @@ import {
   ApiSecurity,
   ApiTags,
 } from '@nestjs/swagger';
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import { UrlService } from './url.service';
 import { CreateUrlDto } from './dto/create-url.dto';
 import { UrlResponseDto } from './dto/url-response.dto';
@@ -63,9 +64,15 @@ export class UrlController {
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Short URL not found' })
   async resolve(
     @Param('shortCode') shortCode: string,
+    @Req() req: Request,
     @Res() res: Response,
   ): Promise<void> {
     const url = await this.urlService.findByShortCodeOrFail(shortCode);
+    void this.urlService.recordClick(
+      url.id,
+      req.ip ?? null,
+      req.headers['user-agent'] ?? null,
+    );
     res.redirect(HttpStatus.FOUND, url.originalUrl);
   }
 }

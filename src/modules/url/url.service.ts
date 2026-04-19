@@ -1,12 +1,14 @@
 import {
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { MoreThanOrEqual, Repository } from 'typeorm';
 import { nanoid } from 'nanoid';
 import { Url } from './url.entity';
+import { Click } from './click.entity';
 import { User, UserPlan } from '../user/user.entity';
 import { CreateUrlDto } from './dto/create-url.dto';
 import { UrlStatsDto } from './dto/url-stats.dto';
@@ -20,9 +22,13 @@ const MONTHLY_QUOTA: Record<UserPlan, number> = {
 
 @Injectable()
 export class UrlService {
+  private readonly logger = new Logger(UrlService.name);
+
   constructor(
     @InjectRepository(Url)
     private readonly urlRepository: Repository<Url>,
+    @InjectRepository(Click)
+    private readonly clickRepository: Repository<Click>,
   ) {}
 
   async shorten(dto: CreateUrlDto, user: User): Promise<Url> {
@@ -79,6 +85,21 @@ export class UrlService {
       throw new NotFoundException('Short URL not found');
     }
     return url;
+  }
+
+  async recordClick(
+    urlId: string,
+    ipAddress: string | null,
+    userAgent: string | null,
+  ): Promise<void> {
+    try {
+      await this.clickRepository.insert({ urlId, ipAddress, userAgent });
+    } catch (err) {
+      this.logger.error(
+        `Failed to record click for url ${urlId}`,
+        err instanceof Error ? err.stack : String(err),
+      );
+    }
   }
 
   private async generateUniqueShortCode(): Promise<string> {
